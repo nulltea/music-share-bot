@@ -1,16 +1,21 @@
-import random;
 import json;
-import telebot;
-import mongoengine as mdb;
+import random;
 import time;
-from data_storage import MusicTrack;
-from data_storage import ChatsInfo;
+import uuid;
+from functools import *;
+from collections import Iterable as iter;
+
+import mongoengine as mdb
+import telebot
+
+from data_storage import ChatsInfo, MusicTrack
 
 GREETING_KEYWORDS = ["hello", "hi", "greetings", "sup", "whats up", "hey"]
 GREETING_RESPONSES = ["Hi there", "Greetings", "Salute", "Hello" "Loading...Here I am!"]
 
 
 class Responder:
+	action_dictionary = {};
 	insert_reply = "Add music track";
 	view_reply = "View music collection";
 
@@ -23,34 +28,11 @@ class Responder:
 		if message.text == self.insert_reply:
 			self.bot.send_message(message.chat.id, "Send me a link to the track, if you please");
 			self.bot.register_next_step_handler(message, self.insert_callback);
-		elif message.text == self.edit_reply:
-			self.bot.send_message(message.chat.id, "Sure. Specify track id for me");
-			self.bot.register_next_step_handler(message, self.edit_callback);
-		elif message.text == self.remove_reply:
-			self.bot.send_message(message.chat.id, "As you wish, but I will need track id");
-			self.bot.register_next_step_handler(message, self.remove_callback);
 		elif message.text == self.view_reply:
 			self.view_music_collection(message);
 
 	def subscribe_actions(self, call):
-		params = call.data.split('_');
-		id = params[1];
-		track = MusicTrack.objects(id=id).get();
-		if params[0] == "artist":
-			self.bot.send_message(call.message.chat.id, "Ok, now send me them (by comma)");
-			self.bot.register_next_step_handler(call.message, self.edit_callback, "artists", track);
-		elif params[0] == "album":
-			self.bot.send_message(call.message.chat.id, "Sure, what`s the album name?");
-			self.bot.register_next_step_handler(call.message, self.edit_callback, "album", track);
-		elif params[0] == "genre":
-			self.bot.send_message(call.message.chat.id, "Fine, then write them up (by comma)");
-			self.bot.register_next_step_handler(call.message, self.edit_callback, "genres", track);
-		elif params[0] == "comm":
-			self.bot.send_message(call.message.chat.id, "Sure, now you can enter the description");
-			self.bot.register_next_step_handler(call.message, self.edit_callback, "description", track);
-		elif params[0] == "link":
-			self.bot.send_message(call.message.chat.id, "Not a problem, please send me one");
-			self.bot.register_next_step_handler(call.message, self.edit_callback, "add_link", track);
+		self.action_dictionary[call.data](call=call);
 
 	def command_handler(self, command, message):
 		if command == "start":
@@ -58,7 +40,7 @@ class Responder:
 
 	def view_music_collection(self, message):
 		for music_track in MusicTrack.objects(is_used=False):
-			self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=Responder.get_track_menu(music_track), parse_mode='Markdown');
+			self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=self.get_track_menu(music_track), parse_mode='Markdown');
 
 	def insert_callback(self, message):
 		music_track = MusicTrack();
@@ -68,15 +50,14 @@ class Responder:
 		except mdb.errors.NotUniqueError as e:
 			music_track = MusicTrack.objects(track_id=music_track.track_id).get();
 			self.bot.send_message(message.chat.id, "Track was already added. Here it is:");
-		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=Responder.get_track_menu(music_track), parse_mode='Markdown');
-
-	def remove_callback(self, message):
-		self.bot.send_message(message.chat.id, "Track removed from collection");
+		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=self.get_track_menu(music_track), parse_mode='Markdown');
 
 	def edit_callback(self, message, track_property, track):
 		attr = getattr(track, track_property)
 		if callable(attr):
 			attr(message.text)
+		elif isinstance(attr, iter):
+			attr.append(message.text);
 		else:
 			setattr(track, track_property, message.text);
 		track.save();
@@ -88,19 +69,62 @@ class Responder:
 		menu.row(self.view_reply);
 		return menu;
 
-	@staticmethod
-	def get_track_menu(track):
+	def edit_action(self, call, hint, property, track):
+		self.bot.send_message(call.message.chat.id, hint);
+		self.bot.register_next_step_handler(call.message, self.edit_callback, property, track);
+
+	def del_action(self, call, track, parent_menu):
+		def func(call, track):
+			track.delete();
+			self.bot.delete_message(call.message.chat.id, call.message.message_id);
 		menu = telebot.types.InlineKeyboardMarkup();
+
+		act_uuid = uuid.uuid4().hex;
+		menu.add(telebot.types.InlineKeyboardButton(text="Yes, do it!", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid: partial(func, track=track)});
+
+		act_uuid = uuid.uuid4().hex;
+		menu.add(telebot.types.InlineKeyboardButton(text="No, never mind", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid: lambda call: self.bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=parent_menu)});
+
+		self.bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=menu);
+
+	def get_track_menu(self, track):
+		menu = telebot.types.InlineKeyboardMarkup();
+
+		act_uuid = uuid.uuid4().hex;
 		prefix = "Add" if any(track.artists) else "Set";
-		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} artists", callback_data="artist_" + str(track.pk)));
+		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} artists", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.edit_action, hint="Ok, now send me them (by comma)", property="artists", track=track)});
+
+		act_uuid = uuid.uuid4().hex;
 		prefix = "Set" if track.album is None or track.album == "" else "Edit";
-		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} album", callback_data="album_" + str(track.pk)));
+		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} album", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.edit_action, hint="Sure, what`s the album name?", property="album", track=track)});
+
+		act_uuid = uuid.uuid4().hex;
 		prefix = "Add" if any(track.genres) else "Set";
-		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} genres", callback_data="genre_" + str(track.pk)));
+		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} genres", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.edit_action, hint="Fine, then write them up (by comma)", property="genres", track=track)});
+
+		act_uuid = uuid.uuid4().hex;
 		prefix = "Set" if track.description is None or track.description == "" else "Edit";
-		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} description", callback_data="comm_" + str(track.pk)));
-		menu.add(telebot.types.InlineKeyboardButton(text="Add link", callback_data="link_" + str(track.pk)));
-		menu.add(telebot.types.InlineKeyboardButton(text="Remove from collection", callback_data="del_" + str(track.pk)));
+		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} description", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.edit_action, hint="Sure, now you can enter the description", property="genres", track=track)});
+
+		act_uuid = uuid.uuid4().hex;
+		menu.add(telebot.types.InlineKeyboardButton(text="Add link", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.edit_action, hint="Not a problem, please send me one", property="genres", track=track)});
+
+		act_uuid = uuid.uuid4().hex;
+		menu.add(telebot.types.InlineKeyboardButton(text="Remove from collection", callback_data=act_uuid));
+		self.action_dictionary.update({act_uuid:
+			partial(self.del_action, track=track, parent_menu=menu)});
 		return menu;
 
 
@@ -182,7 +206,7 @@ class UserResponder(Responder):
 	def check_for_greeting(self, sentence):
 		for word in sentence.words:
 			if word.lower() in GREETING_KEYWORDS:
-				return True, "Приветствую тебѝ, Наѝтѝ. Да - ѝ знаю, кто ты. Создатель запрограмировал менѝ определѝть тебѝ из миллиардов людей."
+				return True, "Приветѝтвую тебѝ, Наѝтѝ. Да - ѝ знаю, кто ты. Создатель запрограмировал менѝ определѝть тебѝ из миллиардов людей."
 		return False, '';
 
 	def impression_input(self, message, track_id):

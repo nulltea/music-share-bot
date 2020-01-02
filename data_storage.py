@@ -9,7 +9,7 @@ import spotify;
 
 cache_connection_string = "redis://localhost:6379";
 
-mdb.connect(db='music-share-bot-db', host='mongodb+srv://admin:admin@cluster0-qvq1p.azure.mongodb.net/music-share-bot-db?retryWrites=true&w=majority',);
+mdb.connect(db='music-share-bot-db', host='mongodb+srv://admin:admin@cluster0-qvq1p.azure.mongodb.net/music-share-bot-db?retryWrites=true&w=majority');
 cache = redis.from_url(cache_connection_string, db=0)
 
 
@@ -38,7 +38,6 @@ class MusicTrack(mdb.Document):
 			self.track_urls["apple_music"] = link;
 		elif "spotify" in link:
 			query = self.track_urls["spotify"] = link;
-			return;
 		elif "deezer" in link:
 			self.track_urls["deezer"] = link;
 		elif "soundcloud" in link:
@@ -48,7 +47,7 @@ class MusicTrack(mdb.Document):
 
 		if len(self.track_urls) <= 1:
 			try:
-				self.set_track_info(self.track_id);
+				self.set_track_info(query);
 			except:
 				pass;
 
