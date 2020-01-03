@@ -7,10 +7,10 @@
 		
 
 		{
-			"name": "Python: Current File",
+			"name": "server",
 			"type": "python",
 			"request": "launch",
-			"program": "${file}",
+			"program": "${workspaceRoot}/server.py",
 			"console": "integratedTerminal"
 		}
 	]

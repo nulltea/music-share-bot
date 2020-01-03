@@ -52,16 +52,16 @@ class Responder:
 			self.bot.send_message(message.chat.id, "Track was already added. Here it is:");
 		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=self.get_track_menu(music_track), parse_mode='Markdown');
 
-	def edit_callback(self, message, track_property, track):
+	def edit_callback(self, message, track_property, track, call):
 		attr = getattr(track, track_property)
 		if callable(attr):
 			attr(message.text)
-		elif isinstance(attr, iter):
+		elif isinstance(attr, mdb.ListField):
 			attr.append(message.text);
 		else:
 			setattr(track, track_property, message.text);
 		track.save();
-		self.bot.send_message(message.chat.id, random.choice(["Saved", "Done", "Yep", "Nice", "Greate"]));
+		self.bot.edit_message_caption(track.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=self.get_track_menu(track), parse_mode='Markdown');
 
 	def get_creator_menu(self):
 		menu = telebot.types.ReplyKeyboardMarkup();
@@ -71,23 +71,26 @@ class Responder:
 
 	def edit_action(self, call, hint, property, track):
 		self.bot.send_message(call.message.chat.id, hint);
-		self.bot.register_next_step_handler(call.message, self.edit_callback, property, track);
+		self.bot.register_next_step_handler(call.message, self.edit_callback, property, track, call);
 
-	def del_action(self, call, track, parent_menu):
-		def func(call, track):
+	def delete_action(self, call, track, parent_menu):
+		def yes(call, track):
 			track.delete();
 			self.bot.delete_message(call.message.chat.id, call.message.message_id);
+
+		def no(call, track):
+			self.bot.edit_message_text(call.message.chat.id, call.message.message_id, text=track.generate_message(), reply_markup=parent_menu, parse_mode='Markdown');
 		menu = telebot.types.InlineKeyboardMarkup();
 
 		act_uuid = uuid.uuid4().hex;
 		menu.add(telebot.types.InlineKeyboardButton(text="Yes, do it!", callback_data=act_uuid));
-		self.action_dictionary.update({act_uuid: partial(func, track=track)});
+		self.action_dictionary.update({act_uuid: partial(yes, track=track)});
 
 		act_uuid = uuid.uuid4().hex;
 		menu.add(telebot.types.InlineKeyboardButton(text="No, never mind", callback_data=act_uuid));
-		self.action_dictionary.update({act_uuid: lambda call: self.bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=parent_menu)});
+		self.action_dictionary.update({act_uuid: lambda call: self.bot.edit_message_caption(track.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=parent_menu, parse_mode='Markdown')});
 
-		self.bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=menu);
+		self.bot.edit_message_caption("Are you sure about that?", call.message.chat.id, call.message.message_id, reply_markup=menu);
 
 	def get_track_menu(self, track):
 		menu = telebot.types.InlineKeyboardMarkup();
@@ -114,17 +117,17 @@ class Responder:
 		prefix = "Set" if track.description is None or track.description == "" else "Edit";
 		menu.add(telebot.types.InlineKeyboardButton(text=f"{prefix} description", callback_data=act_uuid));
 		self.action_dictionary.update({act_uuid:
-			partial(self.edit_action, hint="Sure, now you can enter the description", property="genres", track=track)});
+			partial(self.edit_action, hint="Sure, now you can enter the description", property="description", track=track)});
 
 		act_uuid = uuid.uuid4().hex;
 		menu.add(telebot.types.InlineKeyboardButton(text="Add link", callback_data=act_uuid));
 		self.action_dictionary.update({act_uuid:
-			partial(self.edit_action, hint="Not a problem, please send me one", property="genres", track=track)});
+			partial(self.edit_action, hint="Not a problem, please send me one", property="add_link", track=track)});
 
 		act_uuid = uuid.uuid4().hex;
 		menu.add(telebot.types.InlineKeyboardButton(text="Remove from collection", callback_data=act_uuid));
 		self.action_dictionary.update({act_uuid:
-			partial(self.del_action, track=track, parent_menu=menu)});
+			partial(self.delete_action, track=track, parent_menu=menu)});
 		return menu;
 
 
