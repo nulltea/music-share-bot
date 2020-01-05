@@ -70,7 +70,8 @@ class MusicTrack(mdb.Document):
 	description = mdb.StringField();
 	publisher = mdb.ReferenceField(BotUser);
 	queue_sort_num = mdb.IntField()
-	is_used = mdb.BooleanField(default=False);
+	available = mdb.BooleanField(default=False);
+	seen_by = mdb.ListField();
 	comment = mdb.DictField();
 	meta = {
 		"indexes": ["track_id"],
@@ -82,15 +83,15 @@ class MusicTrack(mdb.Document):
 		if "apple" in link:
 			if self.track_id is None:
 				query = self.track_id = link.split('/')[-2];
-			self.track_urls["apple_music"] = link;
+			self.track_urls["Apple Music"] = link;
 		elif "spotify" in link:
-			query = self.track_urls["spotify"] = link;
+			query = self.track_urls["Spotify"] = link;
 		elif "deezer" in link:
-			self.track_urls["deezer"] = link;
+			self.track_urls["Deezer"] = link;
 		elif "soundcloud" in link:
-			self.track_urls["soundcloud"] = link;
+			self.track_urls["SoundCloud"] = link;
 		elif "youtube" in link:
-			self.track_urls["youtube"] = link;
+			self.track_urls["Youtube"] = link;
 
 		if len(self.track_urls) <= 1:
 			try:
@@ -115,13 +116,15 @@ class MusicTrack(mdb.Document):
 
 	def generate_message(self):
 		artists = ", ".join(self.artists);
-		genres = ", ".join(self.genres);
+		genres = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
 		description = "-" if self.description is None or self.description == "" else self.description;
+		seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join(self.seen_by);
 		msgs = [f"Track Id: *{self.track_id}*",
 		f"Artists: *{artists}*",
 		f"Album: *{self.album}*",
 		f"Genres: *{genres}*",
-		f"Discription: *{description}*"];
+		f"Discription: *{description}*",
+		f"Seen by: *{seen_by}*"];
 		return "\n".join(msgs);
 
 	def get_edit_menu(self):
@@ -136,8 +139,22 @@ class MusicTrack(mdb.Document):
 		description_button = telebot.types.InlineKeyboardButton(text=f"{prefix} description", callback_data=f"crud/description/{self.pk}");
 		link_button = telebot.types.InlineKeyboardButton(text="Add link", callback_data=f"crud/link/{self.pk}");
 		del_button = telebot.types.InlineKeyboardButton(text="Remove from collection", callback_data=f"crud/delete/ask/{self.pk}");
+		if not self.available:
+			publish_button = telebot.types.InlineKeyboardButton(text="Publish to shared collection", callback_data=f"crud/publish/{self.pk}");
 		menu.row(artist_button, album_button);
 		menu.row(genres_button, description_button);
 		menu.row(link_button);
 		menu.row(del_button);
+		if not self.available:
+			menu.row(publish_button);
 		return menu;
+
+	def get_post_menu(self):
+		menu = telebot.types.InlineKeyboardMarkup();
+		button_row = [];
+		for service in self.track_urls:
+			button_row.append(telebot.types.InlineKeyboardButton(text=service, url=self.track_urls[service]));
+		menu.row(*button_row)
+		menu.add(telebot.types.InlineKeyboardButton(text="Comment", callback_data=f"crud/comment/{self.pk}"));
+		return menu;
+
