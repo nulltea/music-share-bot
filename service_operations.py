@@ -8,12 +8,12 @@ import pickle;
 from functools import partial, wraps;
 from collections import defaultdict;
 
-import mongoengine as mdb
-import telebot
+import mongoengine as mdb;
+import telebot;
 import telegram as tg;
 
 from config import *;
-from data_storage import BotUser, MusicTrack
+from data_storage import BotUser, MusicTrack;
 
 
 def tree():
@@ -23,7 +23,7 @@ def tree():
 def send_typing_action(func):
 	@wraps(func)
 	def command_func(self, message, *args, **kwargs):
-		self.bot.send_chat_action(chat_id=message.chat.id, action=tg.ChatAction.TYPING)
+		#self.bot.send_chat_action(chat_id=message.chat.id, action=tg.ChatAction.TYPING)
 		return func(self, message, *args, **kwargs)
 	return command_func
 
@@ -112,5 +112,5 @@ def add_genres_actions(self):
 			self.action_dictionary[document]["genres"][genre] = partial(self.add_genre, genre=genre);
 		self.action_dictionary[document]["genres"]["other"] = partial(self.edit_action,
 		hint="Wow! You know more than that, what is it?", property="genres");
-		self.action_dictionary[document]["genres"]["clear"] = partial(self.clear_genres);
-		self.action_dictionary[document]["genres"]["done"] = partial(self.cancel);
+		self.action_dictionary[document]["genres"]["clear"] = self.clear_genres;
+		self.action_dictionary[document]["genres"]["done"] = self.cancel;

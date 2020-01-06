@@ -1,13 +1,12 @@
+import os
+import urllib.request
 
-import os;
-import urllib.request;
-import telebot;
+import mongoengine as mdb
+import redis
+import telebot
 
-import mongoengine as mdb;
-import redis;
-
-import spotify;
-from config import *;
+import spotify
+from config import *
 
 mdb.connect(db='music-share-bot-db', host='mongodb+srv://admin:admin@cluster0-qvq1p.azure.mongodb.net/music-share-bot-db?retryWrites=true&w=majority');
 cache = redis.StrictRedis(host='localhost', port=6379, db=1)
@@ -72,7 +71,9 @@ class MusicTrack(mdb.Document):
 	queue_sort_num = mdb.IntField()
 	available = mdb.BooleanField(default=False);
 	seen_by = mdb.ListField();
-	comment = mdb.DictField();
+	comments = mdb.DictField();
+	likes = mdb.ListField();
+	dislikes = mdb.ListField();
 	meta = {
 		"indexes": ["track_id"],
 		"ordering": ["-queue_sort_num"],
@@ -137,7 +138,7 @@ class MusicTrack(mdb.Document):
 		genres_button = telebot.types.InlineKeyboardButton(text=f"{prefix} genres", callback_data=f"crud/genres/choose/{self.pk}");
 		prefix = "Set" if self.description is None or self.description == "" else "Edit";
 		description_button = telebot.types.InlineKeyboardButton(text=f"{prefix} description", callback_data=f"crud/description/{self.pk}");
-		link_button = telebot.types.InlineKeyboardButton(text="Add link", callback_data=f"crud/link/{self.pk}");
+		link_button = telebot.types.InlineKeyboardButton(text="Add link", callback_data=f"crud/link/menu/{self.pk}");
 		del_button = telebot.types.InlineKeyboardButton(text="Remove from collection", callback_data=f"crud/delete/ask/{self.pk}");
 		if not self.available:
 			publish_button = telebot.types.InlineKeyboardButton(text="Publish to shared collection", callback_data=f"crud/publish/{self.pk}");
@@ -148,13 +149,3 @@ class MusicTrack(mdb.Document):
 		if not self.available:
 			menu.row(publish_button);
 		return menu;
-
-	def get_post_menu(self):
-		menu = telebot.types.InlineKeyboardMarkup();
-		button_row = [];
-		for service in self.track_urls:
-			button_row.append(telebot.types.InlineKeyboardButton(text=service, url=self.track_urls[service]));
-		menu.row(*button_row)
-		menu.add(telebot.types.InlineKeyboardButton(text="Comment", callback_data=f"crud/comment/{self.pk}"));
-		return menu;
-

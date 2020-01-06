@@ -17,6 +17,7 @@ from data_storage import BotUser, MusicTrack
 import music_operations as music;
 import profile_operations as profile;
 import service_operations as service;
+import feed_operations as feed;
 
 GREETING_KEYWORDS = ["hello", "hi", "greetings", "sup", "whats up", "hey"]
 GREETING_RESPONSES = ["Hi there", "Greetings", "Salute", "Hello" "Loading...Here I am!"]
@@ -42,7 +43,13 @@ class Responder:
 	delete_action = music.delete_action;
 	delete_yes = music.delete_yes;
 	publish = music.publish;
-	request_music = music.request_music;
+	set_link_markup = music.set_link_markup;
+	# Connect feed operations methods
+	add_feed_actions = feed.add_feed_actions;
+	request_music = feed.request_music;
+	comment_action = feed.comment_action;
+	comment_callback = feed.comment_callback;
+	notify_publisher = feed.notify_publisher;
 	# Connect on user profile operation methods;
 	add_profile_actions = profile.add_profile_actions;
 	get_user = profile.get_user;
@@ -90,3 +97,4 @@ class Responder:
 		self.add_profile_actions();
 		self.add_crud_actions();
 		self.add_genres_actions();
+		self.add_feed_actions();

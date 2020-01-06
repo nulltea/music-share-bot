@@ -27,10 +27,10 @@ def add_profile_actions(self):
 		hint="Sorry, what should I call you then?", property="last_name");
 	self.action_dictionary["profile"]["bio"] = partial(self.edit_action,
 		hint="Great can't wait to read more about you, so?", property="bio");
-	self.action_dictionary["profile"]["genres"]["choose"] = partial(self.set_genres_markup);
-	self.action_dictionary["profile"]["save"]["ask"] = partial(self.save_profile);
-	self.action_dictionary["profile"]["save"]["yes"] = partial(self.save_yes);
-	self.action_dictionary["profile"]["save"]["no"] = partial(self.cancel);
+	self.action_dictionary["profile"]["genres"]["choose"] = self.set_genres_markup;
+	self.action_dictionary["profile"]["save"]["ask"] = self.save_profile;
+	self.action_dictionary["profile"]["save"]["yes"] = self.save_yes;
+	self.action_dictionary["profile"]["save"]["no"] = self.cancel;
 
 
 def registration(self, message):
