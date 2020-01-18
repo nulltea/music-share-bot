@@ -8,15 +8,15 @@ from data_storage import BotUser;
 
 class MusicBot:
 	def __init__(self):
-		self.bot = telebot.TeleBot(TOKEN);
+		self.bot = telebot.TeleBot(config["telegram"]["token"]);
 		self.responder = Responder(self.bot);
 		super().__init__();
 
 	def initialize(self):
 		self.responder.init_action_dictionary();
+		self.user_commnads_handler();
 		self.user_input_handler();
 		self.subscribe_actions();
-		self.user_commnads_handler();
 
 	def activate_bot(self):
 		self.bot.polling();
@@ -31,11 +31,8 @@ class MusicBot:
 		def callback_worker(call):
 			self.responder.subscribe_actions(call);
 
-	def user_commnads_handler(self):
-		@self.bot.message_handler(commands=["start"])
-		def start_message(message):
-			self.responder.command_handler("start", message)
 
-		@self.bot.message_handler(commands=["help"])
+	def user_commnads_handler(self):
+		@self.bot.message_handler(commands=["start", "help", "menu", "add", "view", "get"])
 		def start_message(message):
-			self.responder.command_handler("help", message)
+			self.responder.command_handler(message.text.lstrip("/"), message)

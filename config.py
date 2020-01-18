@@ -1,9 +1,23 @@
-CREATOR_USER_ID = "timothy_y";
+import configparser;
+import io;
+from collections import defaultdict;
 
-LOVER_USER_ID = "il_nitski";
 
-FRIEND_USER_ID = "liza";
+MUSIC_GENRES = ["Alternative", "Electronic", "Techno", "Hip-Hop", "Pop", "R&B", "Rock", "Metal", "Classical", "Country", "Reggae", "Indie"]
 
-TOKEN = '883983908:AAG3gQMm7uC2zo7PrvLFzzkjZY7vB59yzmw';
 
-MUSIC_GENRES = ["Alternative", "Electronic", "Techno", "Hip-Hop", "Pop", "R&B", "Rock", "Metal", "Classical", "Country", "Reggae", "Soul"]
+def tree():
+	return defaultdict(tree)
+
+
+def read_config():
+	configreader = configparser.ConfigParser();
+	configreader.read("config.ini");
+	config = tree();
+	for section in configreader.sections():
+		for option in configreader.options(section):
+			config[section][option] = configreader.get(section, option);
+	return config;
+
+
+config = read_config();

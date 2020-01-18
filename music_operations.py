@@ -57,6 +57,11 @@ def get_link_menu(track):
 	return menu;
 
 
+def add_music_track(self, message):
+	self.bot.send_message(message.chat.id, "Sure, send me a link/name of the track, please");
+	self.bot.register_next_step_handler(message, self.insert_callback);
+
+
 def view_music_collection(self, message):
 	for music_track in MusicTrack.objects(__raw__={"$expr": {"$lte": [{"$size": "$seen_by"}, 0]}}):
 		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=music_track.get_edit_menu(), parse_mode='Markdown');
@@ -87,7 +92,7 @@ def publish(self, call, track):
 	track.available = True;
 	track.save();
 	try:
-		self.bot.edit_message_caption(document.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=menu, parse_mode='Markdown');
+		self.bot.edit_message_caption(track.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=track.get_edit_menu(), parse_mode='Markdown');
 	except:
 		pass;
 	if MusicTrack.objects(publisher=user).count() == 1:

@@ -39,6 +39,7 @@ class Responder:
 	# Connect on music operation methods
 	add_crud_actions = music.add_crud_actions;
 	get_main_menu = music.get_main_menu;
+	add_music_track = music.add_music_track;
 	view_music_collection = music.view_music_collection;
 	delete_action = music.delete_action;
 	delete_yes = music.delete_yes;
@@ -46,10 +47,13 @@ class Responder:
 	set_link_markup = music.set_link_markup;
 	# Connect feed operations methods
 	add_feed_actions = feed.add_feed_actions;
+	generate_post_message = feed.generate_post_message;
 	request_music = feed.request_music;
 	comment_action = feed.comment_action;
 	comment_callback = feed.comment_callback;
 	notify_publisher = feed.notify_publisher;
+	upvote = feed.upvote;
+	downvote = feed.downvote;
 	# Connect on user profile operation methods;
 	add_profile_actions = profile.add_profile_actions;
 	get_user = profile.get_user;
@@ -65,11 +69,8 @@ class Responder:
 		queried_users = BotUser.objects(chat_id=message.chat.id);
 		if not queried_users:
 			self.registration(message);
-		if any(word in message.text.lower() for word in ["init", "ready"]):
-			self.bot.send_message(message.chat.id, "Greetings Master. I am ready to serve you!", reply_markup=self.get_main_menu(queried_users.get()));
-		if message.text == music.INSERT_REPLY:
-			self.bot.send_message(message.chat.id, "Send me a link to the track, if you please");
-			self.bot.register_next_step_handler(message, self.insert_callback);
+		elif message.text == music.INSERT_REPLY:
+			self.add_music_track(message);
 		elif message.text == music.VIEW_REPLY:
 			self.view_music_collection(message);
 		elif message.text == music.REQUEST_REPLY:
@@ -84,8 +85,20 @@ class Responder:
 		self.get_action(action_nodes[:-1])(call, document);
 
 	def command_handler(self, command, message):
+		user = self.get_user(message);
 		if command == "start":
 			self.bot.send_message(message.chat.id, "Greetings my friend! I'm here to help you share music with your friends. Let's begin then, shall we?");
+		elif command == "menu":
+			self.bot.send_message(message.chat.id, "Hi mate, here's what you can do. Go for it!", reply_markup=self.get_main_menu(user));
+		elif command == "add":
+			self.add_music_track(message);
+		elif command == "view":
+			self.view_music_collection(message);
+		elif command == "get":
+			if user and MusicTrack.objects(publisher=user).count() >= 1:
+				self.request_music(message);
+			else:
+				self.bot.send_message(message.chat.id, "Sorry but you must earn ability to request music by adding at least one track");
 
 	def get_action(self, nodes):
 		action_node = self.action_dictionary;

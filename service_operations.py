@@ -16,14 +16,10 @@ from config import *;
 from data_storage import BotUser, MusicTrack;
 
 
-def tree():
-	return defaultdict(tree)
-
-
 def send_typing_action(func):
 	@wraps(func)
 	def command_func(self, message, *args, **kwargs):
-		#self.bot.send_chat_action(chat_id=message.chat.id, action=tg.ChatAction.TYPING)
+		# self.bot.send_chat_action(chat_id=message.chat.id, action=tg.ChatAction.TYPING)
 		return func(self, message, *args, **kwargs)
 	return command_func
 
@@ -75,12 +71,14 @@ def get_genres_menu(self, document):
 		row = [];
 		for j in range(1, 4):
 			genre = MUSIC_GENRES[j + i * 3 - 1];
-			if genre in document.genres:
+			if genre.lower() in document.genres:
 				continue;
 			row.append(telebot.types.InlineKeyboardButton(text=genre, callback_data=f"profile/genres/{genre}/{document.pk}"));
 		menu.row(*row);
-	menu.row(telebot.types.InlineKeyboardButton(text="Add other", callback_data=f"profile/genres/other/{document.pk}"),
-		telebot.types.InlineKeyboardButton(text="Clear", callback_data=f"profile/genres/clear/{document.pk}"));
+	menu.row(
+		telebot.types.InlineKeyboardButton(text="Add other", callback_data=f"profile/genres/other/{document.pk}"),
+		telebot.types.InlineKeyboardButton(text="Clear", callback_data=f"profile/genres/clear/{document.pk}")
+	);
 	menu.row(telebot.types.InlineKeyboardButton(text="Done", callback_data=f"profile/genres/done/{document.pk}"));
 	return menu;
 

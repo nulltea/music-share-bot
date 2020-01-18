@@ -5,10 +5,14 @@ import mongoengine as mdb
 import redis
 import telebot
 
-import spotify
+from music_api import *;
 from config import *
 
-mdb.connect(db='music-share-bot-db', host='mongodb+srv://admin:admin@cluster0-qvq1p.azure.mongodb.net/music-share-bot-db?retryWrites=true&w=majority');
+mdb_db = config["mongodb"]["db"];
+mdb_login = config["mongodb"]["login"];
+mdb_password = config["mongodb"]["password"];
+mdb_host = f"mongodb+srv://{mdb_login}:{mdb_password}@cluster0-qvq1p.azure.mongodb.net/{mdb_db}?retryWrites=true&w=majority";
+mdb.connect(db=mdb_db, host=mdb_host);
 cache = redis.StrictRedis(host='localhost', port=6379, db=1)
 
 
@@ -25,6 +29,9 @@ class BotUser(mdb.Document):
 		"indexes": ["username", "chat_id"],
 		"ordering": ["-queue_sort_num"],
 	}
+
+	def __str__(self):
+		return f"{self.first_name} {self.last_name}";
 
 	def set_profile_info(self, message):
 		profile_photos = telebot.apihelper.get_user_profile_photos(TOKEN, message.from_user.id);
@@ -80,31 +87,46 @@ class MusicTrack(mdb.Document):
 	}
 
 	def add_link(self, link):
-		query = link;
+		is_set_info = len(self.track_urls) <= 1;
 		if "apple" in link:
-			if self.track_id is None:
-				query = self.track_id = link.split('/')[-2];
 			self.track_urls["Apple Music"] = link;
+			if self.track_id is None:
+				self.track_id = link.split('/')[-2];
+			if is_set_info:
+				track_info = Spotify.query_track_info(self.track_id);
 		elif "spotify" in link:
 			query = self.track_urls["Spotify"] = link;
+			if is_set_info:
+				track_info = Spotify.query_track_info(link);
 		elif "deezer" in link:
 			self.track_urls["Deezer"] = link;
+			if is_set_info:
+				track_info = Deezer.query_track_info(link);
 		elif "soundcloud" in link:
 			self.track_urls["SoundCloud"] = link;
+			# if self.track_id is None:
+			# 	self.track_id = link.split('/')[-1];
+			if is_set_info:
+				track_info = SoundCloud.query_track_info(link);
 		elif "youtube" in link:
 			self.track_urls["Youtube"] = link;
-
-		if len(self.track_urls) <= 1:
-			try:
-				self.set_track_info(query);
-			except:
-				pass;
+			if is_set_info:
+				track_info = YouTube.query_track_info(link);
+		elif "play.google" in link:
+			self.track_urls["Play Music"] = link;
+			self.track_id = link.split('t=')[-1].replace("_", " ");
+			if is_set_info:
+				track_info = Spotify.query_track_info(self.track_id);
+		else:
+			track_info = Spotify.query_track_info(link);
+		if is_set_info and track_info:
+			self.set_track_info(track_info);
+		self.set_other_links(self.track_id, self.artists[0]);
 
 	def add_comment(self, user, comment):
 		self.comment[user] = comment;
 
-	def set_track_info(self, track_id):
-		track_info = spotify.query_track_info(track_id);
+	def set_track_info(self, track_info):
 		self.track_id = track_info["track_id"];
 		self.album = track_info["album"];
 		self.main_artist = track_info["artists"][0];
@@ -115,11 +137,27 @@ class MusicTrack(mdb.Document):
 			self.cover_image.put(img);
 		os.remove("tmp.png");
 
+	def set_other_links(self, track_id, artist):
+		if "Spotify" not in self.track_urls:
+			track_info = Spotify.query_track_info(f"{artist} {track_id}");
+			if track_info:
+				self.track_urls["Spotify"] = track_info["track_url"];
+		if "Deezer" not in self.track_urls:
+			track_info = Deezer.query_track_info(f"{artist} {track_id}");
+			if track_info:
+				self.track_urls["Deezer"] = track_info["track_url"];
+		if "SoundCloud" not in self.track_urls:
+			track_info = SoundCloud.query_track_info(f"{artist} {track_id}");
+			if track_info:
+				self.track_urls["SoundCloud"] = track_info["track_url"];
+		if "YouTube" not in self.track_urls:
+			pass;
+
 	def generate_message(self):
 		artists = ", ".join(self.artists);
 		genres = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
 		description = "-" if self.description is None or self.description == "" else self.description;
-		seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join(self.seen_by);
+		seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join([str(user) for user in self.seen_by]);
 		msgs = [f"Track Id: *{self.track_id}*",
 		f"Artists: *{artists}*",
 		f"Album: *{self.album}*",

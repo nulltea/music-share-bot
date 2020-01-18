@@ -18,28 +18,70 @@ from data_storage import BotUser, MusicTrack
 
 def add_feed_actions(self):
 	self.action_dictionary["feed"]["comment"]["add"] = self.comment_action;
-	self.action_dictionary["feed"]["like"] = self.delete_yes;
-	self.action_dictionary["feed"]["dislike"] = self.delete_yes;
+	self.action_dictionary["feed"]["upvote"] = self.upvote;
+	self.action_dictionary["feed"]["downvote"] = self.downvote;
+
+
+def generate_post_message(self, track):
+	artists = ", ".join(track.artists);
+	genres = None if track.genres is None or not any(track.genres) else ", ".join(track.genres);
+	description = None if track.description is None or track.description == "" else track.description;
+	msgs = [];
+	msgs.append(f"Track Id: *{track.track_id}*");
+	if artists:
+		msgs.append(f"Artists: *{artists}*");
+	msgs.append(f"Album: *{track.album}*");
+	if genres:
+		msgs.append(f"Genres: *{genres}*");
+	if description:
+		msgs.append(f"Discription: *{description}*");
+	return "\n".join(msgs);
 
 
 def get_post_menu(track):
 	menu = telebot.types.InlineKeyboardMarkup();
 	button_row = [];
-	for service in track.track_urls:
-		button_row.append(telebot.types.InlineKeyboardButton(text=service, url=track.track_urls[service]));
-	menu.row(*button_row)
+	for service in ["Spotify", "Apple Music", "Deezer"]:
+		if service in track.track_urls:
+			button_row.append(telebot.types.InlineKeyboardButton(text=service, url=track.track_urls[service]));
+	menu.row(*button_row);
+	button_row = [];
+	for service in ["SoundCloud", "Youtube", "Play Music"]:
+		if service in track.track_urls:
+			button_row.append(telebot.types.InlineKeyboardButton(text=service, url=track.track_urls[service]));
+	menu.row(*button_row);
+	menu.row(
+		telebot.types.InlineKeyboardButton(text="\U0001F44D", callback_data=f"feed/upvote/{track.pk}"),
+		telebot.types.InlineKeyboardButton(text="\U0001F44E", callback_data=f"feed/downvote/{track.pk}")
+	);
 	menu.add(telebot.types.InlineKeyboardButton(text="Comment", callback_data=f"feed/comment/add/{track.pk}"));
 	return menu;
 
 
 def request_music(self, message):
 	user = self.get_user(message);
-	queried_tracks = MusicTrack.objects(available=True, seen_by__nin=[user])		# publisher__ne=user;
+	queried_tracks = MusicTrack.objects(available=True, seen_by__nin=[user], publisher__ne=user);
 	if queried_tracks.count() == 0:
-		self.bot.send_message(message.chat.id, "Sorry. Not any");
+		self.bot.send_message(message.chat.id, "Sorry, I have nothing to offer you. I'll send your friends a request, so keep calm and hang on for a while..."); 	# TODO request
 	else:
 		music_track = queried_tracks.first();
-		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=get_post_menu(music_track), parse_mode='Markdown');
+		music_track.seen_by.append(user);
+		music_track.save();
+		self.bot.send_photo(message.chat.id, music_track.cover_image, self.generate_post_message(music_track), reply_markup=get_post_menu(music_track), parse_mode='Markdown');
+
+
+def generate_post(track):
+	artists = ", ".join(self.artists);
+	genres = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
+	description = "-" if self.description is None or self.description == "" else self.description;
+	seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join([str(user) for user in self.seen_by]);
+	msgs = [f"Track Id: *{self.track_id}*",
+	f"Artists: *{artists}*",
+	f"Album: *{self.album}*",
+	f"Genres: *{genres}*",
+	f"Discription: *{description}*",
+	f"Seen by: *{seen_by}*"];
+	return "\n".join(msgs);
 
 
 def comment_action(self, call, track):
@@ -57,3 +99,10 @@ def notify_publisher(self, track, message, from_user):
 	self.bot.send_message(track.publisher.chat_id, f"*{from_user.first_name} {from_user.last_name}* just commented track (*{track.track_id}*) you added:", parse_mode='Markdown');
 	self.bot.forward_message(track.publisher.chat_id, message.chat.id, message.message_id);
 
+
+def upvote(self, track, message):
+	pass;
+
+
+def downvote(self, track, message):
+	pass;

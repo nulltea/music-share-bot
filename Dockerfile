@@ -12,7 +12,7 @@ EXPOSE 3000
 WORKDIR /app
 ADD . /app
 
-RUN apk update && apk add gcc libc-dev make git libffi-dev openssl-dev python3-dev libxml2-dev libxslt-dev jpeg-dev
+RUN apk update && apk add gcc libc-dev make git libffi-dev openssl-dev python3-dev libxml2-dev libxslt-dev jpeg-dev g++
 
 # Using pip:
 RUN python3 -m pip install -r requirements.txt

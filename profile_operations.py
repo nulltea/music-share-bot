@@ -17,7 +17,11 @@ from data_storage import BotUser
 
 
 def get_user(self, message):
-		return BotUser.objects(chat_id=message.chat.id).get();
+	user = BotUser.objects(chat_id=message.chat.id);
+	if user:
+		return user.get();
+	else:
+		return None;
 
 
 def add_profile_actions(self):
@@ -55,6 +59,6 @@ def save_profile(self, call, profile):
 
 
 def save_yes(self, call, profile):
-	user = get_user(message);
-	self.bot.edit_message_caption(f"Awesome. So nice to meet you {user.first_name}", call.message.chat.id, call.message.message_id);
-	self.bot.edit_message_caption("Now you can add your music tracks to shared collection!", call.message.chat.id, call.message.message_id, reply_markup=self.get_main_menu());
+	user = self.get_user(call.message);
+	self.bot.send_message(call.message.chat.id, f"Awesome. So nice to meet you {user.first_name}");
+	self.bot.send_message(call.message.chat.id, "Now you can add your music tracks to shared collection!", reply_markup=self.get_main_menu());
