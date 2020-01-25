@@ -1,5 +1,4 @@
 import configparser;
-import io;
 from collections import defaultdict;
 
 
@@ -13,11 +12,11 @@ def tree():
 def read_config():
 	configreader = configparser.ConfigParser();
 	configreader.read("config.ini");
-	config = tree();
+	config_dict = tree();
 	for section in configreader.sections():
 		for option in configreader.options(section):
-			config[section][option] = configreader.get(section, option);
-	return config;
+			config_dict[section][option] = configreader.get(section, option);
+	return config_dict;
 
 
 config = read_config();

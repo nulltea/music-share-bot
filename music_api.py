@@ -54,7 +54,8 @@ class DeezerApi:
 		app_secret=config["deezer"]["app_secret"]
 	);
 
-	def get_track_info(self, track):
+	@staticmethod
+	def get_track_info(track):
 		artists = [track.artist.name]
 		genres = [];
 		return {
@@ -80,7 +81,8 @@ Deezer = DeezerApi();
 class SoundCloudApi:
 	soundcloud = sclib.SoundcloudAPI();
 
-	def get_track_info(self, track):
+	@staticmethod
+	def get_track_info(track):
 		artists = [track.artist]
 		genres = [track.genre];
 		return {
@@ -106,7 +108,8 @@ SoundCloud = SoundCloudApi();
 class YouTubeApi:
 	youtube = youtube_api.YouTubeDataAPI(key=config["youtube"]["api_key"]);
 
-	def get_track_info(self, track):
+	@staticmethod
+	def get_track_info(track):
 		artist = track["channel_title"].replace(" - Topic", "");
 		artists = [artist];
 		track_id = track["video_title"];

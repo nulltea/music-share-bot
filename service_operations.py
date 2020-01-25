@@ -1,19 +1,10 @@
-import json;
-import random;
-import os;
-import urllib.request;
-import time;
-import uuid;
-import pickle;
 from functools import partial, wraps;
-from collections import defaultdict;
 
 import mongoengine as mdb;
 import telebot;
-import telegram as tg;
 
 from config import *;
-from data_storage import BotUser, MusicTrack;
+from data_storage import MusicTrack;
 
 
 def send_typing_action(func):
@@ -34,35 +25,47 @@ def insert_callback(self, message):
 	except mdb.errors.NotUniqueError as e:
 		music_track = MusicTrack.objects(track_id=music_track.track_id).get();
 		self.bot.send_message(message.chat.id, "Track was already added. Here it is:");
-	self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=music_track.get_edit_menu(), parse_mode='Markdown');
+	self.bot.send_photo(
+		message.chat.id,
+		music_track.cover_image,
+		music_track.generate_message,
+		reply_markup=music_track.edit_menu,
+		parse_mode='Markdown'
+	);
 
 
 @send_typing_action
-def edit_callback(self, message, property, document, call):
-	attr = getattr(document, property)
+def edit_callback(self, message, property_name, document, call):
+	attr = getattr(document, property_name)
 	if callable(attr):
 		attr(message.text)
 	elif isinstance(attr, list):
 		attr.extend(message.text.split(","));
 	else:
-		setattr(document, property, message.text);
+		setattr(document, property_name, message.text);
 	document.save();
-	menu = self.get_genres_menu(document) if property == "genres" else document.get_edit_menu();
+	menu = self.get_genres_menu(document) if property_name == "genres" else document.edit_menu;
 	try:
-		self.bot.edit_message_caption(document.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=menu, parse_mode='Markdown');
+		self.bot.edit_message_caption(
+			document.generate_message,
+			call.message.chat.id,
+			call.message.message_id,
+			reply_markup=menu,
+			parse_mode='Markdown'
+		);
 	except:
 		pass;
 
 
-def edit_action(self, call, document, hint, property):
+def edit_action(self, call, document, hint, property_name):
 	self.bot.send_message(call.message.chat.id, hint, reply_markup=telebot.types.ForceReply());
-	self.bot.register_next_step_handler(call.message, self.edit_callback, property, document, call);
+	self.bot.register_next_step_handler(call.message, self.edit_callback, property_name, document, call);
 
 
 def cancel(self, call, track):
-	self.bot.edit_message_caption(track.generate_message(), call.message.chat.id, call.message.message_id,
-		reply_markup=track.get_edit_menu(),
-		parse_mode='Markdown');
+	self.bot.edit_message_caption(track.generate_message, call.message.chat.id, call.message.message_id,
+								  reply_markup=track.edit_menu,
+								  parse_mode='Markdown');
 
 
 def get_genres_menu(self, document):
@@ -86,8 +89,13 @@ def get_genres_menu(self, document):
 def set_genres_markup(self, call, document):
 	selected_genres = "-" if document.genres is None or not any(document.genres) else ", ".join(document.genres);
 	try:
-		self.bot.edit_message_caption(f"Selected geners: *{selected_genres}*\nChoose music genres or add other ones", call.message.chat.id,
-			call.message.message_id, reply_markup=self.get_genres_menu(document), parse_mode='Markdown');
+		self.bot.edit_message_caption(
+			f"Selected genres: *{selected_genres}*\nChoose music genres or add other ones",
+			call.message.chat.id,
+			call.message.message_id,
+			reply_markup=self.get_genres_menu(document),
+			parse_mode='Markdown'
+		);
 	except:
 		pass;
 

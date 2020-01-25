@@ -1,23 +1,9 @@
-import json
-import os
-import pickle
-import random
-import time
-import urllib.request
-import uuid
-from collections import defaultdict
-from functools import partial, wraps
-
-import mongoengine as mdb
-import telebot
-import telegram as tg
-
-from config import *
-from data_storage import BotUser, MusicTrack
+import telebot;
+import feed_operations as feed;
 import music_operations as music;
 import profile_operations as profile;
 import service_operations as service;
-import feed_operations as feed;
+from data_storage import BotUser, MusicTrack
 
 GREETING_KEYWORDS = ["hello", "hi", "greetings", "sup", "whats up", "hey"]
 GREETING_RESPONSES = ["Hi there", "Greetings", "Salute", "Hello" "Loading...Here I am!"]
@@ -87,9 +73,16 @@ class Responder:
 	def command_handler(self, command, message):
 		user = self.get_user(message);
 		if command == "start":
-			self.bot.send_message(message.chat.id, "Greetings my friend! I'm here to help you share music with your friends. Let's begin then, shall we?");
+			self.bot.send_message(
+				message.chat.id,
+				"Greetings my friend! I'm here to help you share music with your friends. Let's begin then, shall we?"
+			);
 		elif command == "menu":
-			self.bot.send_message(message.chat.id, "Hi mate, here's what you can do. Go for it!", reply_markup=self.get_main_menu(user));
+			self.bot.send_message(
+				message.chat.id,
+				"Hi mate, here's what you can do. Go for it!",
+				reply_markup=self.get_main_menu(user)
+			);
 		elif command == "add":
 			self.add_music_track(message);
 		elif command == "view":
@@ -98,7 +91,10 @@ class Responder:
 			if user and MusicTrack.objects(publisher=user).count() >= 1:
 				self.request_music(message);
 			else:
-				self.bot.send_message(message.chat.id, "Sorry but you must earn ability to request music by adding at least one track");
+				self.bot.send_message(
+					message.chat.id,
+					"Sorry but you must earn ability to request music by adding at least one track"
+				);
 
 	def get_action(self, nodes):
 		action_node = self.action_dictionary;

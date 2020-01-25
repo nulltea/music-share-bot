@@ -1,19 +1,6 @@
-import json
-import os
-import pickle
-import random
-import time
-import urllib.request
-import uuid
-from collections import defaultdict
-from functools import partial, wraps
-
-import mongoengine as mdb
 import telebot
-import telegram as tg
 
-from config import *
-from data_storage import BotUser, MusicTrack
+from data_storage import MusicTrack
 
 
 def add_feed_actions(self):
@@ -26,8 +13,7 @@ def generate_post_message(self, track):
 	artists = ", ".join(track.artists);
 	genres = None if track.genres is None or not any(track.genres) else ", ".join(track.genres);
 	description = None if track.description is None or track.description == "" else track.description;
-	msgs = [];
-	msgs.append(f"Track Id: *{track.track_id}*");
+	msgs = [f"Track Id: *{track.track_id}*"];
 	if artists:
 		msgs.append(f"Artists: *{artists}*");
 	msgs.append(f"Album: *{track.album}*");
@@ -62,30 +48,28 @@ def request_music(self, message):
 	user = self.get_user(message);
 	queried_tracks = MusicTrack.objects(available=True, seen_by__nin=[user], publisher__ne=user);
 	if queried_tracks.count() == 0:
-		self.bot.send_message(message.chat.id, "Sorry, I have nothing to offer you. I'll send your friends a request, so keep calm and hang on for a while..."); 	# TODO request
+		self.bot.send_message(message.chat.id, "Sorry, I have nothing to offer you. "
+											"I'll send your friends a request, so keep calm and hang on for a while...");
+	# TODO request
 	else:
 		music_track = queried_tracks.first();
 		music_track.seen_by.append(user);
 		music_track.save();
-		self.bot.send_photo(message.chat.id, music_track.cover_image, self.generate_post_message(music_track), reply_markup=get_post_menu(music_track), parse_mode='Markdown');
-
-
-def generate_post(track):
-	artists = ", ".join(self.artists);
-	genres = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
-	description = "-" if self.description is None or self.description == "" else self.description;
-	seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join([str(user) for user in self.seen_by]);
-	msgs = [f"Track Id: *{self.track_id}*",
-	f"Artists: *{artists}*",
-	f"Album: *{self.album}*",
-	f"Genres: *{genres}*",
-	f"Discription: *{description}*",
-	f"Seen by: *{seen_by}*"];
-	return "\n".join(msgs);
+		self.bot.send_photo(
+			message.chat.id,
+			music_track.cover_image,
+			self.generate_post_message(music_track),
+			reply_markup=get_post_menu(music_track),
+			parse_mode='Markdown'
+		);
 
 
 def comment_action(self, call, track):
-	self.bot.send_message(call.message.chat.id, "Hope you like it, what do you think?", reply_markup=telebot.types.ForceReply());
+	self.bot.send_message(
+		call.message.chat.id,
+		"Hope you like it, what do you think?",
+		reply_markup=telebot.types.ForceReply()
+	);
 	self.bot.register_next_step_handler(call.message, self.comment_callback, track);
 
 
@@ -96,7 +80,11 @@ def comment_callback(self, message, track):
 
 
 def notify_publisher(self, track, message, from_user):
-	self.bot.send_message(track.publisher.chat_id, f"*{from_user.first_name} {from_user.last_name}* just commented track (*{track.track_id}*) you added:", parse_mode='Markdown');
+	self.bot.send_message(
+		track.publisher.chat_id,
+		f"*{from_user.first_name} {from_user.last_name}* just commented track (*{track.track_id}*) you added:",
+		parse_mode='Markdown'
+	);
 	self.bot.forward_message(track.publisher.chat_id, message.chat.id, message.message_id);
 
 

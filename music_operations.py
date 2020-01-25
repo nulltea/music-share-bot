@@ -1,19 +1,8 @@
-import json;
-import os;
-import pickle;
-import random;
-import time;
-import urllib.request;
-import uuid;
-from collections import defaultdict;
-from functools import partial, wraps;
+from functools import partial;
 
-import mongoengine as mdb
 import telebot;
-import telegram as tg;
 
-from config import *
-from data_storage import BotUser, MusicTrack
+from data_storage import MusicTrack
 
 INSERT_REPLY = "Add music track";
 VIEW_REPLY = "View music collection";
@@ -64,14 +53,25 @@ def add_music_track(self, message):
 
 def view_music_collection(self, message):
 	for music_track in MusicTrack.objects(__raw__={"$expr": {"$lte": [{"$size": "$seen_by"}, 0]}}):
-		self.bot.send_photo(message.chat.id, music_track.cover_image, music_track.generate_message(), reply_markup=music_track.get_edit_menu(), parse_mode='Markdown');
+		self.bot.send_photo(
+			message.chat.id,
+			music_track.cover_image,
+			music_track.generate_message,
+			reply_markup=music_track.edit_menu,
+			parse_mode='Markdown'
+		);
 
 
 def delete_action(self, call, track):
 	menu = telebot.types.InlineKeyboardMarkup();
 	menu.row(telebot.types.InlineKeyboardButton(text="Yes", callback_data=f"crud/delete/yes/{track.pk}"),
 		telebot.types.InlineKeyboardButton(text="No", callback_data=f"crud/delete/no/{track.pk}"));
-	self.bot.edit_message_caption("Are you sure about that?", call.message.chat.id, call.message.message_id, reply_markup=menu);
+	self.bot.edit_message_caption(
+		"Are you sure about that?",
+		call.message.chat.id,
+		call.message.message_id,
+		reply_markup=menu
+	);
 
 
 def delete_yes(self, call, track):
@@ -81,8 +81,13 @@ def delete_yes(self, call, track):
 
 def set_link_markup(self, call, track):
 	added_services = "-" if track.track_urls is None or not any(track.track_urls) else ", ".join(track.track_urls);
-	self.bot.edit_message_caption(f"Added services: *{added_services}*", call.message.chat.id,
-			call.message.message_id, reply_markup=get_link_menu(track), parse_mode='Markdown');
+	self.bot.edit_message_caption(
+		f"Added services: *{added_services}*",
+		call.message.chat.id,
+		call.message.message_id,
+		reply_markup=get_link_menu(track),
+		parse_mode='Markdown'
+	);
 
 
 def publish(self, call, track):
@@ -92,9 +97,18 @@ def publish(self, call, track):
 	track.available = True;
 	track.save();
 	try:
-		self.bot.edit_message_caption(track.generate_message(), call.message.chat.id, call.message.message_id, reply_markup=track.get_edit_menu(), parse_mode='Markdown');
+		self.bot.edit_message_caption(
+			track.generate_message,
+			call.message.chat.id,
+			call.message.message_id,
+			reply_markup=track.edit_menu,
+			parse_mode='Markdown'
+		);
 	except:
 		pass;
 	if MusicTrack.objects(publisher=user).count() == 1:
-		self.bot.send_message(call.message.chat.id, f"Nicely done {user.first_name}. As you published your first music track - you now can request ones!",
-		reply_markup=self.get_main_menu(user));
+		self.bot.send_message(
+			call.message.chat.id,
+			"Nicely done {user.first_name}. As you published your first music track - you now can request ones!",
+			reply_markup=self.get_main_menu(user)
+		);

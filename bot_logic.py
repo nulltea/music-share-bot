@@ -1,9 +1,6 @@
-import telegram as tg;
 import telebot;
-
-from responders import *;
 from config import *;
-from data_storage import BotUser;
+from responders import *;
 
 
 class MusicBot:
@@ -14,7 +11,7 @@ class MusicBot:
 
 	def initialize(self):
 		self.responder.init_action_dictionary();
-		self.user_commnads_handler();
+		self.user_commands_handler();
 		self.user_input_handler();
 		self.subscribe_actions();
 
@@ -31,8 +28,7 @@ class MusicBot:
 		def callback_worker(call):
 			self.responder.subscribe_actions(call);
 
-
-	def user_commnads_handler(self):
+	def user_commands_handler(self):
 		@self.bot.message_handler(commands=["start", "help", "menu", "add", "view", "get"])
 		def start_message(message):
 			self.responder.command_handler(message.text.lstrip("/"), message)

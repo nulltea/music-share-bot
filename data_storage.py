@@ -11,7 +11,8 @@ from config import *
 mdb_db = config["mongodb"]["db"];
 mdb_login = config["mongodb"]["login"];
 mdb_password = config["mongodb"]["password"];
-mdb_host = f"mongodb+srv://{mdb_login}:{mdb_password}@cluster0-qvq1p.azure.mongodb.net/{mdb_db}?retryWrites=true&w=majority";
+mdb_host = f"mongodb+srv://{mdb_login}:{mdb_password}@cluster0-qvq1p.azure.mongodb.net/{mdb_db}" \
+		"?retryWrites=true&w=majority";
 mdb.connect(db=mdb_db, host=mdb_host);
 cache = redis.StrictRedis(host='localhost', port=6379, db=1)
 
@@ -34,31 +35,51 @@ class BotUser(mdb.Document):
 		return f"{self.first_name} {self.last_name}";
 
 	def set_profile_info(self, message):
-		profile_photos = telebot.apihelper.get_user_profile_photos(TOKEN, message.from_user.id);
+		token = config["telegram"]["token"]
+		profile_photos = telebot.apihelper.get_user_profile_photos(token, message.from_user.id);
 		file_id = profile_photos['photos'][0][2]['file_id'];
-		img_path = telebot.apihelper.get_file(TOKEN, file_id)["file_path"];
-		img_url = f"https://api.telegram.org/file/bot{TOKEN}/{img_path}";
+		img_path = telebot.apihelper.get_file(token, file_id)["file_path"];
+		img_url = f"https://api.telegram.org/file/bot{token}/{img_path}";
 		urllib.request.urlretrieve(img_url, "tmp.png");
 		with open("tmp.png", "rb") as img:
 			self.profile_picture.put(img);
 		os.remove("tmp.png");
 
+	@property
 	def generate_message(self):
 		bio = "-" if self.bio is None or self.bio == "" else self.bio;
 		preferences = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
-		msgs = [f"Username: *{self.username}*",
-		f"Full name: *{self.first_name} {self.last_name}*",
-		f"Bio: *{bio}*",
-		f"Music preferences: *{preferences}*"];
+		msgs = [
+			f"Username: *{self.username}*",
+			f"Full name: *{self.first_name} {self.last_name}*",
+			f"Bio: *{bio}*",
+			f"Music preferences: *{preferences}*"
+		];
 		return "\n".join(msgs);
 
-	def get_edit_menu(self):
+	@property
+	def edit_menu(self):
 		menu = telebot.types.InlineKeyboardMarkup();
-		firstname_button = telebot.types.InlineKeyboardButton(text="Change first name", callback_data=f"profile/firstname/{self.pk}");
-		lastname_button = telebot.types.InlineKeyboardButton(text="Change last name", callback_data=f"profile/lastname/{self.pk}");
-		bio_button = telebot.types.InlineKeyboardButton(text="Fill bio (optional)", callback_data=f"profile/bio/{self.pk}");
-		preferences_button = telebot.types.InlineKeyboardButton(text="Set music preferences", callback_data=f"profile/genres/choose/{self.pk}");
-		save_button = telebot.types.InlineKeyboardButton(text="Finish editing/checking", callback_data=f"profile/save/ask/{self.pk}");
+		firstname_button = telebot.types.InlineKeyboardButton(
+			text="Change first name",
+			callback_data=f"profile/firstname/{self.pk}"
+		);
+		lastname_button = telebot.types.InlineKeyboardButton(
+			text="Change last name",
+			callback_data=f"profile/lastname/{self.pk}"
+		);
+		bio_button = telebot.types.InlineKeyboardButton(
+			text="Fill bio (optional)",
+			callback_data=f"profile/bio/{self.pk}"
+		);
+		preferences_button = telebot.types.InlineKeyboardButton(
+			text="Set music preferences",
+			callback_data=f"profile/genres/choose/{self.pk}"
+		);
+		save_button = telebot.types.InlineKeyboardButton(
+			text="Finish editing/checking",
+			callback_data=f"profile/save/ask/{self.pk}"
+		);
 		menu.row(firstname_button, lastname_button);
 		menu.row(bio_button, preferences_button);
 		menu.row(save_button);
@@ -153,20 +174,24 @@ class MusicTrack(mdb.Document):
 		if "YouTube" not in self.track_urls:
 			pass;
 
+	@property
 	def generate_message(self):
 		artists = ", ".join(self.artists);
 		genres = "-" if self.genres is None or not any(self.genres) else ", ".join(self.genres);
 		description = "-" if self.description is None or self.description == "" else self.description;
 		seen_by = "-" if self.seen_by is None or not any(self.seen_by) else ", ".join([str(user) for user in self.seen_by]);
-		msgs = [f"Track Id: *{self.track_id}*",
-		f"Artists: *{artists}*",
-		f"Album: *{self.album}*",
-		f"Genres: *{genres}*",
-		f"Discription: *{description}*",
-		f"Seen by: *{seen_by}*"];
+		msgs = [
+			f"Track Id: *{self.track_id}*",
+			f"Artists: *{artists}*",
+			f"Album: *{self.album}*",
+			f"Genres: *{genres}*",
+			f"Description: *{description}*",
+			f"Seen by: *{seen_by}*"
+		];
 		return "\n".join(msgs);
 
-	def get_edit_menu(self):
+	@property
+	def edit_menu(self):
 		menu = telebot.types.InlineKeyboardMarkup();
 		prefix = "Add" if any(self.artists) else "Set";
 		artist_button = telebot.types.InlineKeyboardButton(text=f"{prefix} artists", callback_data=f"crud/artist/{self.pk}");
